@@ -18,9 +18,25 @@
 
 - 你理解的对于类似ucore这样需要进程/虚存/文件系统的操作系统，在硬件设计上至少需要有哪些直接的支持？至少应该提供哪些功能的特权指令？
 
+  硬件支持: 时钟中断; MMU等地址硬件; 文件存储管理, 调用硬件等支持; 
+
+  对应指令: 包括加载系统寄存器, 加载cache及处理cache异常, 处理时钟中断的特权指令.
+
 - 你理解的x86的实模式和保护模式有什么区别？物理地址、线性地址、逻辑地址的含义分别是什么？
 
+  区别在于实模式没有保护地址的机制. 实模式下每个程序的地址都对应物理地址, 不保护内核程序; 保护模式中内核程序的空间得到保护, 不会被用户程序破坏.
+
+  物理地址是内存设备里存储数据单元的真实地址.
+
+  逻辑地址是访存指令中的偏移量.
+
+  线性地址是逻辑地址加上段地址.
+
+  虚拟地址指的是程序空间内的地址.
+
 - 你理解的risc-v的特权模式有什么区别？不同 模式在地址访问方面有何特征？
+
+  特权模式分为机器模式, 监督模式和用户模式, 其内存访问方面不同, 机器模式最底层, 权限最高, 用户模式最低.
 
 - 理解ucore中list_entry双向链表数据结构及其4个基本操作函数和ucore中一些基于它的代码实现（此题不用填写内容）
 
@@ -39,6 +55,8 @@
     unsigned gd_off_31_16 : 16;        // high bits of offset in segment
  };
 ```
+
+数字是结构体中项目的位数, 单位bit.
 
 - 对于如下的代码段，
 
@@ -63,11 +81,49 @@ SETGATE(intr, 1,2,3,0);
 ```
 请问执行上述指令后， intr的值是多少？
 
+0x20003
+
 ### 课堂实践练习
 
 #### 练习一
 
 1. 请在ucore中找一段你认为难度适当的AT&T格式X86汇编代码，尝试解释其含义。
+
+   切换上下文的算法:
+
+   ```
+   .text
+   .globl switch_to
+   switch_to:                      # switch_to(from, to)
+   
+       # save from's registers
+       movl 4(%esp), %eax          # eax points to from
+       popl 0(%eax)                # save eip !popl
+       movl %esp, 4(%eax)
+       movl %ebx, 8(%eax)
+       movl %ecx, 12(%eax)
+       movl %edx, 16(%eax)
+       movl %esi, 20(%eax)
+       movl %edi, 24(%eax)
+       movl %ebp, 28(%eax)
+   
+       # restore to's registers
+       movl 4(%esp), %eax          # not 8(%esp): popped return address already
+                                   # eax now points to to
+       movl 28(%eax), %ebp
+       movl 24(%eax), %edi
+       movl 20(%eax), %esi
+       movl 16(%eax), %edx
+       movl 12(%eax), %ecx
+       movl 8(%eax), %ebx
+       movl 4(%eax), %esp
+   
+       pushl 0(%eax)               # push eip
+   
+       ret
+   ```
+
+   栈顶是from, 下面是to, 先取出from, 再存下除了eax外的7个寄存器的值; 然后取出to, 恢复除了eax外的七个寄存器的值, 最后把eax的值指向的跳转地址作为返回值压栈.
 
 2. (option)请在rcore中找一段你认为难度适当的RV汇编代码，尝试解释其含义。
 
